@@ -2,6 +2,7 @@ package com.rorg.gym.zuul.oauth;
 
 import java.util.Arrays;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
@@ -19,17 +20,19 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
-import com.rorg.gym.commons.oauth.ApiGatewayEndPoint;
-import com.rorg.gym.commons.oauth.ApiGatewayResource;
-
+import com.rorg.gym.commons.enums.HttpHeader;
+import com.rorg.gym.commons.enums.HttpMethod;
 
 @RefreshScope
 @Configuration
 @EnableResourceServer
-public class ResourceServerConfigure extends ResourceServerConfigurerAdapter implements ApiGatewayEndPoint, ApiGatewayResource {
+public class ResourceServerConfigure extends ResourceServerConfigurerAdapter {
 	
 	@Value("${configuration.security.oauth.jwt.key}")
 	private String singningKey;
+	
+	@Autowired
+	private ICreatePolicy<HttpSecurity,HttpSecurity> iCreatePolicy;
 
 	@Override
 	public void configure(ResourceServerSecurityConfigurer resources) throws Exception {
@@ -38,22 +41,22 @@ public class ResourceServerConfigure extends ResourceServerConfigurerAdapter imp
 
 	@Override
 	public void configure(HttpSecurity http) throws Exception {
-		http
-		.authorizeRequests()
-			.antMatchers(MARK1_SECURITY + ALL_OAUTH).permitAll()
-			//.antMatchers(HttpMethod.GET, MARK1_USER + ALL_USER).hasRole(Mark1Role.MARK_SUPER_ADMINISTRATOR.name())
-			.anyRequest().fullyAuthenticated()
-		.and()
-			.cors().configurationSource(corsConfigurationSource());
+		HttpSecurity httpCurrent = iCreatePolicy.createPolicyUserSystem(http);
+		httpCurrent.cors().configurationSource(corsConfigurationSource());
 	}
 	
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration corsConfiguration = new CorsConfiguration();
 		corsConfiguration.addAllowedOrigin("*");
-		corsConfiguration.setAllowedMethods(Arrays.asList("POST","GET","PUT","DELETE","OPTIONS"));
+		corsConfiguration.setAllowedMethods(Arrays.asList(HttpMethod.POST.getValue()
+															,HttpMethod.GET.getValue()
+															,HttpMethod.PUT.getValue()
+															,HttpMethod.DELETE.getValue()
+															,HttpMethod.OPTIONS.getValue()));
+		corsConfiguration.setAllowedHeaders(Arrays.asList(HttpHeader.AUTHORIZATION.getValue()
+															, HttpHeader.CONTENT_TYPE.getValue()));
 		corsConfiguration.setAllowCredentials(true);
-		corsConfiguration.setAllowedHeaders(Arrays.asList("Authorization","Content-Type"));
 		UrlBasedCorsConfigurationSource urlBasedCorsConfigurationSource = new UrlBasedCorsConfigurationSource();
 		urlBasedCorsConfigurationSource.registerCorsConfiguration("/**",corsConfiguration);
 		return urlBasedCorsConfigurationSource;
